@@ -1,59 +1,40 @@
+import os
 import re
-from langchain.chat_models import ChatOpenAI
-from langchain.schema import (
-    AIMessage,
-    HumanMessage,
-    SystemMessage
-)
+from langchain.chat_models import QianfanChatEndpoint
+from langchain.schema import HumanMessage, SystemMessage
+
 
 def get_api_response(content: str, max_tokens=None):
-    
-    chat = ChatOpenAI(
-        openai_api_key=OPENAI_API_KEY,
-        #model='gpt-3',
-        #model='gpt-3.5-turbo',
-        #model='gpt-3.5-turbo-0613',
-        #model='gpt-3.5-turbo-16k',
-        model='gpt-3.5-turbo-16k-0613',
-        openai_proxy=OPENAI_Proxy,
-        #model='gpt-4',
-        #model='gpt-4-0613',
-        #model='gpt-4-32k-0613',
-        temperature=0.5）
+    chat = QianfanChatEndpoint(
+        model="ERNIE-Bot",
+        qianfan_ak=os.environ["QIANFAN_API_KEY"],
+        qianfan_sk=os.environ["QIANFAN_SECRET_KEY"],
+    )
 
-
-    # response = openai.ChatCompletion.create(
-    #     model='gpt-3.5-turbo-16k-0613',
-    #     messages=[{
-    #         'role': 'system',
-    #         'content': 'You are a helpful and creative assistant for writing novel.'
-    #     }, {
-    #         'role': 'user',
-    #         'content': content,
-    #     }],
-    #     temperature=0.5,  
-    #     max_tokens=max_tokens
-    # )
-    # response = None
     messages = [
-        SystemMessage(content="You are a helpful and creative assistant for writing novel."),
-        HumanMessage(content=content)
+        SystemMessage(content="你是一位富有创造力和想象力的小说写作助手。"),
+        HumanMessage(content=content),
     ]
     try:
         response = chat(messages)
-    except:
-        st.error("OpenAI Error")
+    except Exception as e:
+        print(e)
+        raise e
 
     if response is not None:
         return response.content
     else:
-        return "Error: response not found"    
-
-def get_content_between_a_b(a,b,text):
-    return re.search(f"{a}(.*?)\n{b}", text, re.DOTALL).group(1).strip()
+        return "Error: response not found"
 
 
-def get_init(init_text=None,text=None,response_file=None):
+def get_content_between_a_b(a, b, text):
+    text = text.replace("：", ":")
+    text = re.search(f"{a}(.*?)\n{b}", text, re.DOTALL).group(1).strip()
+    text = text.replace(":", "：")
+    return text
+
+
+def get_init(init_text=None, text=None, response_file=None):
     """
     init_text: if the title, outline, and the first 3 paragraphs are given in a .txt file, directly read
     text: if no .txt file is given, use init prompt to generate
@@ -63,49 +44,49 @@ def get_init(init_text=None,text=None,response_file=None):
         print(response)
 
         if response_file:
-            with open(response_file, 'a', encoding='utf-8') as f:
-                f.write(f"Init output here:\n{response}\n\n")
+            with open(response_file, "a", encoding="utf-8") as f:
+                f.write(f"初始输出:\n{response}\n\n")
     else:
-        with open(init_text,'r',encoding='utf-8') as f:
+        with open(init_text, "r", encoding="utf-8") as f:
             response = f.read()
         f.close()
     paragraphs = {
-        "name":"",
-        "Outline":"",
-        "Paragraph 1":"",
-        "Paragraph 2":"",
-        "Paragraph 3":"",
+        "name": "",
+        "Outline": "",
+        "Paragraph 1": "",
+        "Paragraph 2": "",
+        "Paragraph 3": "",
         "Summary": "",
-        "Instruction 1":"",
-        "Instruction 2":"", 
-        "Instruction 3":""    
+        "Instruction 1": "",
+        "Instruction 2": "",
+        "Instruction 3": "",
     }
-    paragraphs['name'] = get_content_between_a_b('Name:','Outline',response)
-    
-    paragraphs['Paragraph 1'] = get_content_between_a_b('Paragraph 1:','Paragraph 2:',response)
-    paragraphs['Paragraph 2'] = get_content_between_a_b('Paragraph 2:','Paragraph 3:',response)
-    paragraphs['Paragraph 3'] = get_content_between_a_b('Paragraph 3:','Summary',response)
-    paragraphs['Summary'] = get_content_between_a_b('Summary:','Instruction 1',response)
-    paragraphs['Instruction 1'] = get_content_between_a_b('Instruction 1:','Instruction 2',response)
-    paragraphs['Instruction 2'] = get_content_between_a_b('Instruction 2:','Instruction 3',response)
+    paragraphs["name"] = get_content_between_a_b("名称:", "大纲", response)
+
+    paragraphs["Paragraph 1"] = get_content_between_a_b("段落 1:", "段落 2:", response)
+    paragraphs["Paragraph 2"] = get_content_between_a_b("段落 2:", "段落 3:", response)
+    paragraphs["Paragraph 3"] = get_content_between_a_b("段落 3:", "情节摘要", response)
+    paragraphs["Summary"] = get_content_between_a_b("情节摘要:", "指令 1", response)
+    paragraphs["Instruction 1"] = get_content_between_a_b("指令 1:", "指令 2", response)
+    paragraphs["Instruction 2"] = get_content_between_a_b("指令 2:", "指令 3", response)
     lines = response.splitlines()
     # content of Instruction 3 may be in the same line with I3 or in the next line
-    if lines[-1] != '\n' and lines[-1].startswith('Instruction 3'):
-        paragraphs['Instruction 3'] = lines[-1][len("Instruction 3:"):]
-    elif lines[-1] != '\n':
-        paragraphs['Instruction 3'] = lines[-1]
+    if lines[-1] != "\n" and lines[-1].startswith("指令 3"):
+        paragraphs["Instruction 3"] = lines[-1][len("指令 3:") :]
+    elif lines[-1] != "\n":
+        paragraphs["Instruction 3"] = lines[-1]
     # Sometimes it gives Chapter outline, sometimes it doesn't
     for line in lines:
-        if line.startswith('Chapter'):
-            paragraphs['Outline'] = get_content_between_a_b('Outline:','Chapter',response)
+        if line.startswith("章节"):
+            paragraphs["Outline"] = get_content_between_a_b("大纲:", "章节", response)
             break
-    if paragraphs['Outline'] == '':
-        paragraphs['Outline'] = get_content_between_a_b('Outline:','Paragraph',response)
-
+    if paragraphs["Outline"] == "":
+        paragraphs["Outline"] = get_content_between_a_b("大纲:", "段落", response)
 
     return paragraphs
 
-def get_chatgpt_response(model,prompt):
+
+def get_chatgpt_response(model, prompt):
     response = ""
     for data in model.ask(prompt):
         response = data["message"]
