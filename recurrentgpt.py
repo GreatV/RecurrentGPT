@@ -1,40 +1,38 @@
 from utils import get_content_between_a_b, get_api_response
-import torch
+import paddle
 
 import random
 
-from sentence_transformers import  util
+from paddlenlp.embeddings import TokenEmbedding
+
+token_embedding = TokenEmbedding("w2v.baidu_encyclopedia.target.word-word.dim300")
 
 
 class RecurrentGPT:
-
-    def __init__(self, input, short_memory, long_memory, memory_index, embedder):
+    def __init__(self, input, short_memory, long_memory):
         self.input = input
         self.short_memory = short_memory
         self.long_memory = long_memory
-        self.embedder = embedder
-        if self.long_memory and not memory_index:
-            self.memory_index = self.embedder.encode(
-                self.long_memory, convert_to_tensor=True)
         self.output = {}
 
     def prepare_input(self, new_character_prob=0.1, top_k=2):
-
         input_paragraph = self.input["output_paragraph"]
         input_instruction = self.input["output_instruction"]
 
-        instruction_embedding = self.embedder.encode(
-            input_instruction, convert_to_tensor=True)
-
         # get the top 3 most similar paragraphs from memory
-
-        memory_scores = util.cos_sim(
-            instruction_embedding, self.memory_index)[0]
-        top_k_idx = torch.topk(memory_scores, k=top_k)[1]
+        memory_scores = []
+        for memory in self.long_memory:
+            memory_scores.append(token_embedding.cosine_sim(input_instruction, memory))
+        memory_scores = paddle.to_tensor(memory_scores)
+        top_k_idx = paddle.topk(memory_scores, k=top_k)[1]
         top_k_memory = [self.long_memory[idx] for idx in top_k_idx]
         # combine the top 3 paragraphs
-        input_long_term_memory = '\n'.join(
-            [f"相关段落 {i+1} :" + selected_memory for i, selected_memory in enumerate(top_k_memory)])
+        input_long_term_memory = "\n".join(
+            [
+                f"相关段落 {i+1} :" + selected_memory
+                for i, selected_memory in enumerate(top_k_memory)
+            ]
+        )
         # randomly decide if a new character should be introduced
         if random.random() < new_character_prob:
             new_character_prompt = "如果合理，可以在输出段落中引入新角色，并将其添加到记忆中。"
@@ -83,20 +81,16 @@ class RecurrentGPT:
 
     def parse_output(self, output):
         try:
-            output_paragraph = get_content_between_a_b(
-                '输出段落:', '输出记忆', output)
-            output_memory_updated = get_content_between_a_b(
-                '更新的记忆:', '输出指令', output)
+            output_paragraph = get_content_between_a_b("输出段落:", "输出记忆", output)
+            output_memory_updated = get_content_between_a_b("更新的记忆:", "输出指令", output)
             self.short_memory = output_memory_updated
-            ins_1 = get_content_between_a_b(
-                '指令 1:', '指令 2', output)
-            ins_2 = get_content_between_a_b(
-                '指令 2:', '指令 3', output)
+            ins_1 = get_content_between_a_b("指令 1:", "指令 2", output)
+            ins_2 = get_content_between_a_b("指令 2:", "指令 3", output)
             lines = output.splitlines()
             # content of Instruction 3 may be in the same line with I3 or in the next line
-            if lines[-1] != '\n' and lines[-1].startswith('指令 3'):
-                ins_3 = lines[-1][len("指令 3:"):]
-            elif lines[-1] != '\n':
+            if lines[-1] != "\n" and lines[-1].startswith("指令 3"):
+                ins_3 = lines[-1][len("指令 3:") :]
+            elif lines[-1] != "\n":
                 ins_3 = lines[-1]
 
             output_instructions = [ins_1, ins_2, ins_3]
@@ -106,7 +100,9 @@ class RecurrentGPT:
                 "input_paragraph": self.input["output_paragraph"],
                 "output_memory": output_memory_updated,  # feed to human
                 "output_paragraph": output_paragraph,
-                "output_instruction": [instruction.strip() for instruction in output_instructions]
+                "output_instruction": [
+                    instruction.strip() for instruction in output_instructions
+                ],
             }
 
             return output
@@ -115,10 +111,9 @@ class RecurrentGPT:
             return None
 
     def step(self, response_file=None):
-
         prompt = self.prepare_input()
 
-        print(prompt+'\n'+'\n')
+        print(prompt + "\n" + "\n")
 
         response = get_api_response(prompt)
 
@@ -127,9 +122,7 @@ class RecurrentGPT:
             response = get_api_response(prompt)
             self.output = self.parse_output(response)
         if response_file:
-            with open(response_file, 'a', encoding='utf-8') as f:
+            with open(response_file, "a", encoding="utf-8") as f:
                 f.write(f"作者输出:\n{response}\n\n")
 
         self.long_memory.append(self.input["output_paragraph"])
-        self.memory_index = self.embedder.encode(
-            self.long_memory, convert_to_tensor=True)

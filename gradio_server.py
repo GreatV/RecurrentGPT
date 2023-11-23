@@ -2,14 +2,10 @@ import gradio as gr
 import random
 from recurrentgpt import RecurrentGPT
 from human_simulator import Human
-from sentence_transformers import SentenceTransformer
 from utils import get_init, parse_instructions
 
 _CACHE = {}
 
-
-# Build the semantic search model
-embedder = SentenceTransformer('multi-qa-mpnet-base-cos-v1')
 
 def init_prompt(novel_type, description):
     if description == "":
@@ -109,7 +105,7 @@ def step(
             instruction3,
         ]
         init_paragraphs = cache["init_paragraphs"]
-        human = Human(input=start_input_to_human, memory=None, embedder=embedder)
+        human = Human(input=start_input_to_human, memory=None)
         human.step()
         start_short_memory = init_paragraphs["Summary"]
         writer_start_input = human.output
@@ -122,8 +118,6 @@ def step(
                 init_paragraphs["Paragraph 1"],
                 init_paragraphs["Paragraph 2"],
             ],
-            memory_index=None,
-            embedder=embedder,
         )
         cache["writer"] = writer
         cache["human"] = human
@@ -171,7 +165,7 @@ def controled_step(
         start_input_to_human = cache["start_input_to_human"]
         start_input_to_human["output_instruction"] = selected_instruction
         init_paragraphs = cache["init_paragraphs"]
-        human = Human(input=start_input_to_human, memory=None, embedder=embedder)
+        human = Human(input=start_input_to_human, memory=None)
         human.step()
         start_short_memory = init_paragraphs["Summary"]
         writer_start_input = human.output
@@ -185,7 +179,6 @@ def controled_step(
                 init_paragraphs["Paragraph 2"],
             ],
             memory_index=None,
-            embedder=embedder,
         )
         cache["writer"] = writer
         cache["human"] = human
@@ -232,39 +225,20 @@ with gr.Blocks(
                 with gr.Blocks():
                     with gr.Row():
                         with gr.Column(scale=1, min_width=200):
-                            novel_type = gr.Textbox(
-                                label="类型", placeholder="如：玄幻"
-                            )
+                            novel_type = gr.Textbox(label="类型", placeholder="如：玄幻")
                         with gr.Column(scale=2, min_width=400):
                             description = gr.Textbox(label="描述")
                 btn_init = gr.Button("初始化", variant="primary")
                 gr.Examples(
-                    [
-                        "玄幻",
-                        "奇幻",
-                        "武侠",
-                        "仙侠",
-                        "都市",
-                        "现实",
-                        "历史",
-                        "军事",
-                        "游戏",
-                        "体育"
-                    ],
+                    ["玄幻", "奇幻", "武侠", "仙侠", "都市", "现实", "历史", "军事", "游戏", "体育"],
                     inputs=[novel_type],
                 )
-                written_paras = gr.Textbox(
-                    label="已完成段落 (可编辑)", max_lines=21, lines=21
-                )
+                written_paras = gr.Textbox(label="已完成段落 (可编辑)", max_lines=21, lines=21)
             with gr.Column():
                 with gr.Blocks():
                     gr.Markdown("### 记忆模块\n")
-                    short_memory = gr.Textbox(
-                        label="短期记忆 (可编辑)", max_lines=3, lines=3
-                    )
-                    long_memory = gr.Textbox(
-                        label="长期记忆 (可编辑)", max_lines=6, lines=6
-                    )
+                    short_memory = gr.Textbox(label="短期记忆 (可编辑)", max_lines=3, lines=3)
+                    long_memory = gr.Textbox(label="长期记忆 (可编辑)", max_lines=6, lines=6)
                 with gr.Blocks():
                     gr.Markdown("### 指令模块\n")
                     with gr.Row():
@@ -324,39 +298,20 @@ with gr.Blocks(
                 with gr.Blocks():
                     with gr.Row():
                         with gr.Column(scale=1, min_width=200):
-                            novel_type = gr.Textbox(
-                                label="类型", placeholder="玄幻"
-                            )
+                            novel_type = gr.Textbox(label="类型", placeholder="玄幻")
                         with gr.Column(scale=2, min_width=400):
                             description = gr.Textbox(label="描述")
                 btn_init = gr.Button("初始化", variant="primary")
                 gr.Examples(
-                    [
-                        "玄幻",
-                        "奇幻",
-                        "武侠",
-                        "仙侠",
-                        "都市",
-                        "现实",
-                        "历史",
-                        "军事",
-                        "游戏",
-                        "体育"
-                    ],
+                    ["玄幻", "奇幻", "武侠", "仙侠", "都市", "现实", "历史", "军事", "游戏", "体育"],
                     inputs=[novel_type],
                 )
-                written_paras = gr.Textbox(
-                    label="已完成段落 (可编辑)", max_lines=23, lines=23
-                )
+                written_paras = gr.Textbox(label="已完成段落 (可编辑)", max_lines=23, lines=23)
             with gr.Column():
                 with gr.Blocks():
                     gr.Markdown("### 记忆模块\n")
-                    short_memory = gr.Textbox(
-                        label="短期记忆 (可编辑)", max_lines=3, lines=3
-                    )
-                    long_memory = gr.Textbox(
-                        label="长期记忆 (可编辑)", max_lines=6, lines=6
-                    )
+                    short_memory = gr.Textbox(label="短期记忆 (可编辑)", max_lines=3, lines=3)
+                    long_memory = gr.Textbox(label="长期记忆 (可编辑)", max_lines=6, lines=6)
                 with gr.Blocks():
                     gr.Markdown("### 指令 模块\n")
                     with gr.Row():

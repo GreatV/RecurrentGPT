@@ -28,9 +28,13 @@ def get_api_response(content: str, max_tokens=None):
 
 
 def get_content_between_a_b(a, b, text):
-    text = text.replace("：", ":")
-    text = re.search(f"{a}(.*?)\n{b}", text, re.DOTALL).group(1).strip()
-    text = text.replace(":", "：")
+    try:
+        text = text.replace("：", ":")
+        text = re.search(f"{a}(.*?)\n{b}", text, re.DOTALL).group(1).strip()
+        text = text.replace(":", "：")
+    except Exception as e:
+        text = ""
+
     return text
 
 
@@ -63,8 +67,8 @@ def get_init(init_text=None, text=None, response_file=None):
     }
     paragraphs["name"] = get_content_between_a_b("名称:", "大纲", response)
 
-    paragraphs["Paragraph 1"] = get_content_between_a_b("段落 1:", "段落 2:", response)
-    paragraphs["Paragraph 2"] = get_content_between_a_b("段落 2:", "段落 3:", response)
+    paragraphs["Paragraph 1"] = get_content_between_a_b("段落 1:", "段落 2", response)
+    paragraphs["Paragraph 2"] = get_content_between_a_b("段落 2:", "段落 3", response)
     paragraphs["Paragraph 3"] = get_content_between_a_b("段落 3:", "情节摘要", response)
     paragraphs["Summary"] = get_content_between_a_b("情节摘要:", "指令 1", response)
     paragraphs["Instruction 1"] = get_content_between_a_b("指令 1:", "指令 2", response)

@@ -2,13 +2,12 @@ from utils import get_content_between_a_b, parse_instructions, get_api_response
 
 
 class Human:
-    def __init__(self, input, memory, embedder):
+    def __init__(self, input, memory):
         self.input = input
         if memory:
             self.memory = memory
         else:
             self.memory = self.input["output_memory"]
-        self.embedder = embedder
         self.output = {}
 
     def prepare_input(self):
